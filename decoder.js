@@ -74,7 +74,8 @@ Decoder.prototype._writeHead = function (chunk, offset) {
     this._cb = null
   })
 
-  if (this._msg.method) this.emit('request', this._msg)
+  if (this._msg.error) this.emit('error', this._msg.error)
+  else if (this._msg.method) this.emit('request', this._msg)
   else this.emit('response', this._msg)
 
   return bodyStart - origHeaderOffset
