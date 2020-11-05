@@ -33,6 +33,7 @@ Decoder.prototype._writeOffset = function (chunk, offset, cb) {
     if (this._inBody) {
       offset = this._writeBody(chunk, offset, cb)
       if (offset === 0) return // chunk not consumed - _writeOffset will be called again when ready
+      if (!this._inBody) break // end of body, there should be nothing more to read
     } else {
       offset = this._writeHead(chunk, offset)
     }
