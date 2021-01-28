@@ -33,7 +33,6 @@ Decoder.prototype._writeOffset = function (chunk, offset, cb) {
     if (this._inBody) {
       offset = this._writeBody(chunk, offset, cb)
       if (offset === 0) return // chunk not consumed - _writeOffset will be called again when ready
-      if (!this._inBody) break // end of body, there should be nothing more to read
     } else {
       offset = this._writeHead(chunk, offset)
     }
@@ -41,14 +40,28 @@ Decoder.prototype._writeOffset = function (chunk, offset, cb) {
   cb()
 }
 
+function isWhitespace(char) {
+  return char < 0x21;
+}
+
 Decoder.prototype._writeHead = function (chunk, offset) {
-  if (this._headerOffset === 0) debug('start of header')
+  if (this._headerOffset === 0) {
+    // Skip whitespaces
+    while (offset < chunk.length && isWhitespace(chunk[offset])) {
+      offset++;
+    }
+    if (offset >= chunk.length) {
+      return offset;
+    }
+    debug('start of header')
+  }
 
   chunk.copy(this._header, this._headerOffset, offset)
   var origHeaderOffset = this._headerOffset
   this._headerOffset += chunk.length - offset
-  var bodyStart = offset + indexOfBody(this._header, Math.max(origHeaderOffset - 3, 0), this._headerOffset)
-  if (!~bodyStart) return chunk.length // still reading the header
+  var indexOfBodyVal = indexOfBody(this._header, Math.max(origHeaderOffset - 3, 0), this._headerOffset);
+  var bodyStart = offset + indexOfBodyVal
+  if (indexOfBodyVal == -1) return chunk.length // still reading the header
 
   debug('end of header')
 
@@ -94,10 +107,11 @@ Decoder.prototype._writeBody = function (chunk, offset, cb) {
 
   var drained = this._msg.write(chunk.slice(offset, end))
 
-  this._bodyBytesWritten += chunk.length
+  this._bodyBytesWritten += (end - offset)
 
   if (this._bodyBytesWritten >= this._bodySize) {
     debug('end of body')
+    // Reset variables
     this._inBody = false
     this._bodyBytesWritten = 0
     this._msg.end()
